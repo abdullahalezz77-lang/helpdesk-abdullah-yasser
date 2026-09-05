@@ -35,7 +35,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         },
       ]),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET', 'helpdesk-lite-jwt-secret-key-at-least-32-characters-long'),
+      secretOrKey: configService.get<string>(
+        'JWT_SECRET',
+        'helpdesk-lite-jwt-secret-key-at-least-32-characters-long',
+      ),
     });
   }
 

@@ -9,8 +9,6 @@ import * as bcrypt from 'bcryptjs';
 
 describe('AuthService', () => {
   let service: AuthService;
-  let prisma: PrismaService;
-  let mailService: MailService;
 
   const mockUser = {
     id: 'user-uuid-1',
@@ -67,8 +65,6 @@ describe('AuthService', () => {
     }).compile();
 
     service = module.get<AuthService>(AuthService);
-    prisma = module.get<PrismaService>(PrismaService);
-    mailService = module.get<MailService>(MailService);
     jest.clearAllMocks();
   });
 
@@ -119,7 +115,9 @@ describe('AuthService', () => {
 
       expect(result.message).toContain('Password changed successfully');
       expect(mockPrismaService.user.update).toHaveBeenCalled();
-      expect(mockPrismaService.session.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-uuid-1' } });
+      expect(mockPrismaService.session.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'user-uuid-1' },
+      });
     });
 
     it('rejects if newPassword and confirmPassword do not match', async () => {
@@ -185,7 +183,9 @@ describe('AuthService', () => {
       expect(mockPrismaService.passwordResetToken.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ usedAt: expect.any(Date) }) }),
       );
-      expect(mockPrismaService.session.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-uuid-1' } });
+      expect(mockPrismaService.session.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'user-uuid-1' },
+      });
     });
   });
 });

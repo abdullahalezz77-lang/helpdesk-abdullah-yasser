@@ -44,7 +44,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
         code = 'INVALID_STATUS_TRANSITION';
         message = exception.message;
       } else {
-        this.logger.error(`Unhandled Exception at ${request.method} ${request.url}:`, exception.stack);
+        this.logger.error(
+          `Unhandled Exception at ${request.method} ${request.url}:`,
+          exception.stack,
+        );
       }
     }
 

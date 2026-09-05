@@ -41,7 +41,9 @@ export class MailService {
     }
 
     // In production, SMTP or transactional email provider can be attached here
-    this.logger.log(`Dispatched production email to ${options.to} with subject: ${options.subject}`);
+    this.logger.log(
+      `Dispatched production email to ${options.to} with subject: ${options.subject}`,
+    );
     return true;
   }
 
@@ -73,7 +75,9 @@ Token: ${token}`;
   }
 
   getLastEmailTo(email: string): SentEmailRecord | undefined {
-    return [...this.sentEmailsHistory].reverse().find((m) => m.to.toLowerCase() === email.toLowerCase());
+    return [...this.sentEmailsHistory]
+      .reverse()
+      .find((m) => m.to.toLowerCase() === email.toLowerCase());
   }
 
   clearSentEmails(): void {

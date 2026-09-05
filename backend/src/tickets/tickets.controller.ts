@@ -29,29 +29,25 @@ export class TicketsController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Submit a new support ticket' })
-  @SwaggerResponse({ status: 201, description: 'Ticket created with unique identifier and initial history' })
-  async createTicket(
-    @CurrentUser('id') userId: string,
-    @Body() dto: CreateTicketDto,
-  ) {
+  @SwaggerResponse({
+    status: 201,
+    description: 'Ticket created with unique identifier and initial history',
+  })
+  async createTicket(@CurrentUser('id') userId: string, @Body() dto: CreateTicketDto) {
     return this.ticketsService.createTicket(userId, dto);
   }
 
   @Get()
-  @ApiOperation({ summary: 'List tickets according to role permissions with pagination, filters, and search' })
-  async findAll(
-    @CurrentUser() user: { id: string; role: Role },
-    @Query() query: QueryTicketsDto,
-  ) {
+  @ApiOperation({
+    summary: 'List tickets according to role permissions with pagination, filters, and search',
+  })
+  async findAll(@CurrentUser() user: { id: string; role: Role }, @Query() query: QueryTicketsDto) {
     return this.ticketsService.findAll(user, query);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get single ticket details with history' })
-  async findOne(
-    @Param('id') id: string,
-    @CurrentUser() user: { id: string; role: Role },
-  ) {
+  async findOne(@Param('id') id: string, @CurrentUser() user: { id: string; role: Role }) {
     return this.ticketsService.findOne(id, user);
   }
 
@@ -103,10 +99,7 @@ export class TicketsController {
 
   @Get(':id/history')
   @ApiOperation({ summary: 'Get complete audit history trail for a ticket' })
-  async getHistory(
-    @Param('id') id: string,
-    @CurrentUser() user: { id: string; role: Role },
-  ) {
+  async getHistory(@Param('id') id: string, @CurrentUser() user: { id: string; role: Role }) {
     return this.ticketsService.getHistory(id, user);
   }
 }

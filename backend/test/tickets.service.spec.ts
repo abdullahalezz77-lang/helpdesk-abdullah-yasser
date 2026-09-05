@@ -2,13 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TicketsService } from '../src/tickets/tickets.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { NotificationsService } from '../src/notifications/notifications.service';
-import { ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { ForbiddenException, BadRequestException } from '@nestjs/common';
 import { Role, TicketPriority, TicketStatus, HistoryEventType } from '@prisma/client';
 import { InvalidStatusTransitionError } from '@helpdesk/shared';
 
 describe('TicketsService', () => {
   let service: TicketsService;
-  let prisma: PrismaService;
 
   const mockEmployee = { id: 'emp-1', role: Role.EMPLOYEE };
   const mockSupport = { id: 'supp-1', role: Role.SUPPORT };
@@ -54,14 +53,17 @@ describe('TicketsService', () => {
     }).compile();
 
     service = module.get<TicketsService>(TicketsService);
-    prisma = module.get<PrismaService>(PrismaService);
     jest.clearAllMocks();
   });
 
   describe('createTicket', () => {
     it('creates ticket with sequential HD-XXXXXX identifier and initial history', async () => {
       mockPrisma.category.findUnique.mockResolvedValue({ id: 'cat-1', isActive: true });
-      mockPrisma.user.findUnique.mockResolvedValue({ id: 'emp-1', name: 'Jane Doe', email: 'jane@local' });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'emp-1',
+        name: 'Jane Doe',
+        email: 'jane@local',
+      });
       mockPrisma.ticket.findFirst.mockResolvedValue({ ticketNumber: 'HD-000041' });
       mockPrisma.ticket.create.mockResolvedValue({
         id: 'ticket-1',
@@ -106,9 +108,9 @@ describe('TicketsService', () => {
         requesterId: 'emp-OTHER',
       });
 
-      await expect(
-        service.findOne('t-99', { id: 'emp-1', role: Role.EMPLOYEE }),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.findOne('t-99', { id: 'emp-1', role: Role.EMPLOYEE })).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('allows employee to view their own ticket', async () => {
@@ -149,7 +151,7 @@ describe('TicketsService', () => {
         status: TicketStatus.IN_PROGRESS,
       });
 
-      const result = await service.updateStatus('t-1', mockSupport, {
+      await service.updateStatus('t-1', mockSupport, {
         status: TicketStatus.IN_PROGRESS,
         reason: 'Starting diagnosis',
       });
@@ -246,9 +248,9 @@ describe('TicketsService', () => {
         requesterId: 'emp-1',
       });
 
-      await expect(
-        service.reopenTicket('t-1', mockEmployee, { reason: 'Test' }),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.reopenTicket('t-1', mockEmployee, { reason: 'Test' })).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 });

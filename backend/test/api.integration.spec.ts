@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-const request = require('supertest');
-const cookieParser = require('cookie-parser');
+import * as request from 'supertest';
+import * as cookieParser from 'cookie-parser';
+import * as bcrypt from 'bcryptjs';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { MailService } from '../src/mail/mail.service';
@@ -16,7 +17,6 @@ describe('HelpDesk Lite API (Integration Tests)', () => {
   let supportToken: string;
   let managerToken: string;
   let createdTicketId: string;
-  let createdTicketNumber: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -114,7 +114,6 @@ describe('HelpDesk Lite API (Integration Tests)', () => {
       expect(res.body.data.assigneeId).toBeNull();
 
       createdTicketId = res.body.data.id;
-      createdTicketNumber = res.body.data.ticketNumber;
     });
 
     it('returns ticket when requested by creator', async () => {
@@ -130,27 +129,34 @@ describe('HelpDesk Lite API (Integration Tests)', () => {
     });
 
     it('prevents an employee from viewing another employee ticket (IDOR)', async () => {
-      // Create second employee
-      const emp2 = await prisma.user.upsert({
+      // Create second employee with known credentials
+      const emp2PasswordHash = await bcrypt.hash('Password123!', 4);
+      await prisma.user.upsert({
         where: { email: 'employee2@helpdesk-lite.local' },
-        update: {},
+        update: { passwordHash: emp2PasswordHash },
         create: {
           email: 'employee2@helpdesk-lite.local',
           name: 'Second Employee',
-          passwordHash: 'dummy',
+          passwordHash: emp2PasswordHash,
           role: 'EMPLOYEE',
         },
       });
 
+      // Authenticate as the second employee
       const emp2Login = await request(app.getHttpServer())
         .post('/api/auth/login')
-        .send({ email: 'employee@helpdesk-lite.local', password: 'Password123!' });
-      
-      // Attempt to access createdTicketId as a different user simulation
+        .send({ email: 'employee2@helpdesk-lite.local', password: 'Password123!' })
+        .expect(200);
+      const emp2Token = emp2Login.body.data.accessToken;
+
+      // employee2 must NOT be able to read employee1's ticket
       const forbiddenRes = await request(app.getHttpServer())
         .get(`/api/tickets/${createdTicketId}`)
-        .set('Authorization', `Bearer ${employeeToken}`);
-      expect(forbiddenRes.status).toBe(200); // creator gets 200
+        .set('Authorization', `Bearer ${emp2Token}`)
+        .expect(403);
+
+      expect(forbiddenRes.body.success).toBe(false);
+      expect(forbiddenRes.body.error.code).toBe('FORBIDDEN');
     });
   });
 

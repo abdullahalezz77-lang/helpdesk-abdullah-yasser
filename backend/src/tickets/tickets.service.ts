@@ -13,13 +13,7 @@ import { AssignTicketDto } from './dto/assign-ticket.dto';
 import { ReassignTicketDto } from './dto/reassign-ticket.dto';
 import { ReopenTicketDto } from './dto/reopen-ticket.dto';
 import { QueryTicketsDto } from './dto/query-tickets.dto';
-import {
-  Role,
-  TicketPriority,
-  TicketStatus,
-  HistoryEventType,
-  Prisma,
-} from '@prisma/client';
+import { Role, TicketPriority, TicketStatus, HistoryEventType, Prisma } from '@prisma/client';
 import { validateStatusTransition } from '@helpdesk/shared';
 
 @Injectable()
@@ -99,12 +93,14 @@ export class TicketsService {
     });
 
     // 3. Notify support team of new incoming request
-    this.notificationsService.notifyRole(
-      Role.SUPPORT,
-      `New Request: ${ticket.ticketNumber}`,
-      `${requester.name} submitted: "${ticket.title}"`,
-      `/support/requests/${ticket.id}`,
-    ).catch((err) => this.logger.warn('Failed to dispatch support notifications:', err));
+    this.notificationsService
+      .notifyRole(
+        Role.SUPPORT,
+        `New Request: ${ticket.ticketNumber}`,
+        `${requester.name} submitted: "${ticket.title}"`,
+        `/support/requests/${ticket.id}`,
+      )
+      .catch((err) => this.logger.warn('Failed to dispatch support notifications:', err));
 
     return ticket;
   }
@@ -182,7 +178,9 @@ export class TicketsService {
   }
 
   async findOne(idOrNumber: string, user: { id: string; role: Role }) {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrNumber);
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      idOrNumber,
+    );
 
     const ticket = await this.prisma.ticket.findFirst({
       where: isUuid ? { id: idOrNumber } : { ticketNumber: idOrNumber.toUpperCase() },
@@ -287,12 +285,14 @@ export class TicketsService {
     });
 
     // In-app notification to requester
-    this.notificationsService.createNotification(
-      ticket.requesterId,
-      `Ticket ${ticket.ticketNumber} Updated`,
-      `Status changed to ${dto.status}${dto.reason ? `: ${dto.reason}` : ''}`,
-      `/requests/${ticket.id}`,
-    ).catch((err) => this.logger.warn('Failed to send status update notification:', err));
+    this.notificationsService
+      .createNotification(
+        ticket.requesterId,
+        `Ticket ${ticket.ticketNumber} Updated`,
+        `Status changed to ${dto.status}${dto.reason ? `: ${dto.reason}` : ''}`,
+        `/requests/${ticket.id}`,
+      )
+      .catch((err) => this.logger.warn('Failed to send status update notification:', err));
 
     return updated;
   }
@@ -331,7 +331,8 @@ export class TicketsService {
     const oldAssigneeName = ticket.assignee?.name || 'Unassigned';
 
     // When claiming an unassigned ticket in NEW status, automatically advance to IN_PROGRESS
-    const nextStatus = ticket.status === TicketStatus.NEW ? TicketStatus.IN_PROGRESS : ticket.status;
+    const nextStatus =
+      ticket.status === TicketStatus.NEW ? TicketStatus.IN_PROGRESS : ticket.status;
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const result = await tx.ticket.update({
@@ -355,10 +356,13 @@ export class TicketsService {
         data: {
           ticketId,
           actorId: user.id,
-          eventType: isReassignment ? HistoryEventType.TICKET_REASSIGNED : HistoryEventType.TICKET_ASSIGNED,
+          eventType: isReassignment
+            ? HistoryEventType.TICKET_REASSIGNED
+            : HistoryEventType.TICKET_ASSIGNED,
           oldValue: oldAssigneeName,
           newValue: targetUser.name,
-          reason: dto.reason || (isReassignment ? 'Ticket reassigned' : 'Ticket claimed / assigned'),
+          reason:
+            dto.reason || (isReassignment ? 'Ticket reassigned' : 'Ticket claimed / assigned'),
         },
       });
 
@@ -380,21 +384,25 @@ export class TicketsService {
 
     // Notify new assignee if not self
     if (targetUserId !== user.id) {
-      this.notificationsService.createNotification(
-        targetUserId,
-        `Ticket Assigned: ${ticket.ticketNumber}`,
-        `You were assigned ticket: "${ticket.title}"`,
-        `/support/requests/${ticket.id}`,
-      ).catch((err) => this.logger.warn('Failed to notify assignee:', err));
+      this.notificationsService
+        .createNotification(
+          targetUserId,
+          `Ticket Assigned: ${ticket.ticketNumber}`,
+          `You were assigned ticket: "${ticket.title}"`,
+          `/support/requests/${ticket.id}`,
+        )
+        .catch((err) => this.logger.warn('Failed to notify assignee:', err));
     }
 
     // Notify requester
-    this.notificationsService.createNotification(
-      ticket.requesterId,
-      `Ticket Assigned: ${ticket.ticketNumber}`,
-      `Your ticket was assigned to ${targetUser.name}`,
-      `/requests/${ticket.id}`,
-    ).catch((err) => this.logger.warn('Failed to notify requester:', err));
+    this.notificationsService
+      .createNotification(
+        ticket.requesterId,
+        `Ticket Assigned: ${ticket.ticketNumber}`,
+        `Your ticket was assigned to ${targetUser.name}`,
+        `/requests/${ticket.id}`,
+      )
+      .catch((err) => this.logger.warn('Failed to notify requester:', err));
 
     return updated;
   }
@@ -417,7 +425,9 @@ export class TicketsService {
     }
 
     if (ticket.status !== TicketStatus.RESOLVED) {
-      throw new BadRequestException(`Only tickets in RESOLVED status can be reopened. Current status: ${ticket.status}`);
+      throw new BadRequestException(
+        `Only tickets in RESOLVED status can be reopened. Current status: ${ticket.status}`,
+      );
     }
 
     // Employees can reopen their own tickets, or support/manager can reopen
@@ -459,12 +469,14 @@ export class TicketsService {
 
     // Notify assignee if assigned
     if (ticket.assigneeId) {
-      this.notificationsService.createNotification(
-        ticket.assigneeId,
-        `Ticket Reopened: ${ticket.ticketNumber}`,
-        `Ticket was reopened: "${dto.reason}"`,
-        `/support/requests/${ticket.id}`,
-      ).catch((err) => this.logger.warn('Failed to notify assignee of reopen:', err));
+      this.notificationsService
+        .createNotification(
+          ticket.assigneeId,
+          `Ticket Reopened: ${ticket.ticketNumber}`,
+          `Ticket was reopened: "${dto.reason}"`,
+          `/support/requests/${ticket.id}`,
+        )
+        .catch((err) => this.logger.warn('Failed to notify assignee of reopen:', err));
     }
 
     return updated;

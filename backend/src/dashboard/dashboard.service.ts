@@ -88,10 +88,7 @@ export class DashboardService {
         }),
         this.prisma.ticket.findMany({
           where: {
-            OR: [
-              { assigneeId: null },
-              { assigneeId: userId },
-            ],
+            OR: [{ assigneeId: null }, { assigneeId: userId }],
             status: { notIn: [TicketStatus.CLOSED] },
           },
           orderBy: { createdAt: 'desc' },
@@ -121,51 +118,43 @@ export class DashboardService {
   }
 
   async getManagerMetrics() {
-    const [
-      total,
-      open,
-      waiting,
-      resolved,
-      closed,
-      supportUsers,
-      categoryGroups,
-      priorityGroups,
-    ] = await Promise.all([
-      this.prisma.ticket.count(),
-      this.prisma.ticket.count({
-        where: { status: { in: [TicketStatus.NEW, TicketStatus.IN_PROGRESS] } },
-      }),
-      this.prisma.ticket.count({
-        where: { status: TicketStatus.WAITING },
-      }),
-      this.prisma.ticket.count({
-        where: { status: TicketStatus.RESOLVED },
-      }),
-      this.prisma.ticket.count({
-        where: { status: TicketStatus.CLOSED },
-      }),
-      this.prisma.user.findMany({
-        where: { role: Role.SUPPORT, isActive: true },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          assignedTickets: {
-            select: {
-              status: true,
+    const [total, open, waiting, resolved, closed, supportUsers, categoryGroups, priorityGroups] =
+      await Promise.all([
+        this.prisma.ticket.count(),
+        this.prisma.ticket.count({
+          where: { status: { in: [TicketStatus.NEW, TicketStatus.IN_PROGRESS] } },
+        }),
+        this.prisma.ticket.count({
+          where: { status: TicketStatus.WAITING },
+        }),
+        this.prisma.ticket.count({
+          where: { status: TicketStatus.RESOLVED },
+        }),
+        this.prisma.ticket.count({
+          where: { status: TicketStatus.CLOSED },
+        }),
+        this.prisma.user.findMany({
+          where: { role: Role.SUPPORT, isActive: true },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            assignedTickets: {
+              select: {
+                status: true,
+              },
             },
           },
-        },
-      }),
-      this.prisma.ticket.groupBy({
-        by: ['categoryId'],
-        _count: { id: true },
-      }),
-      this.prisma.ticket.groupBy({
-        by: ['priority'],
-        _count: { id: true },
-      }),
-    ]);
+        }),
+        this.prisma.ticket.groupBy({
+          by: ['categoryId'],
+          _count: { id: true },
+        }),
+        this.prisma.ticket.groupBy({
+          by: ['priority'],
+          _count: { id: true },
+        }),
+      ]);
 
     // Format workload per support staff member
     const workload = supportUsers.map((user) => {

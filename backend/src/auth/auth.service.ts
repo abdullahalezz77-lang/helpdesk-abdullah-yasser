@@ -15,7 +15,6 @@ import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { Role } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -224,7 +223,9 @@ export class AuthService {
       });
     });
 
-    return { message: 'Password has been reset successfully. You can now log in with your new password.' };
+    return {
+      message: 'Password has been reset successfully. You can now log in with your new password.',
+    };
   }
 
   async validateUserById(id: string) {
