@@ -1,0 +1,168 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  EMPLOYEE
+  SUPPORT
+  MANAGER
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  NEW
+  IN_PROGRESS
+  WAITING
+  RESOLVED
+  CLOSED
+}
+
+enum HistoryEventType {
+  TICKET_CREATED
+  TICKET_ASSIGNED
+  TICKET_REASSIGNED
+  STATUS_CHANGED
+  TICKET_REOPENED
+  TICKET_RESOLVED
+  TICKET_CLOSED
+}
+
+model User {
+  id              String                @id @default(uuid())
+  email           String                @unique
+  name            String
+  passwordHash    String                @map("password_hash")
+  role            Role                  @default(EMPLOYEE)
+  isActive        Boolean               @default(true) @map("is_active")
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+
+  requestedTickets Ticket[]             @relation("RequesterTickets")
+  assignedTickets  Ticket[]             @relation("AssigneeTickets")
+  historyEntries   TicketHistory[]      @relation("ActorHistory")
+  sessions         Session[]
+  resetTokens      PasswordResetToken[]
+  notifications    Notification[]
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  tickets     Ticket[]
+
+  @@map("categories")
+}
+
+model TicketSequence {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("ticket_sequences")
+}
+
+model Ticket {
+  id             String          @id @default(uuid())
+  ticketNumber   String          @unique @map("ticket_number")
+  title          String
+  description    String
+  categoryId     String          @map("category_id")
+  category       Category        @relation(fields: [categoryId], references: [id])
+  priority       TicketPriority  @default(MEDIUM)
+  status         TicketStatus    @default(NEW)
+  requesterId    String          @map("requester_id")
+  requester      User            @relation("RequesterTickets", fields: [requesterId], references: [id])
+  assigneeId     String?         @map("assignee_id")
+  assignee       User?           @relation("AssigneeTickets", fields: [assigneeId], references: [id])
+  resolvedAt     DateTime?       @map("resolved_at")
+  closedAt       DateTime?       @map("closed_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  history        TicketHistory[]
+
+  @@index([ticketNumber])
+  @@index([status])
+  @@index([requesterId])
+  @@index([assigneeId])
+  @@index([categoryId])
+  @@index([createdAt])
+  @@map("tickets")
+}
+
+model TicketHistory {
+  id          String           @id @default(uuid())
+  ticketId    String           @map("ticket_id")
+  ticket      Ticket           @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actorId     String           @map("actor_id")
+  actor       User             @relation("ActorHistory", fields: [actorId], references: [id])
+  eventType   HistoryEventType @map("event_type")
+  oldValue    String?          @map("old_value")
+  newValue    String?          @map("new_value")
+  reason      String?
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  @@index([ticketId])
+  @@index([createdAt])
+  @@map("ticket_history")
+}
+
+model Session {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash   String   @unique @map("token_hash")
+  userAgent   String?  @map("user_agent")
+  ipAddress   String?  @map("ip_address")
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("sessions")
+}
+
+model PasswordResetToken {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash   String    @unique @map("token_hash")
+  expiresAt   DateTime  @map("expires_at")
+  usedAt      DateTime? @map("used_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("password_reset_tokens")
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  message     String
+  link        String?
+  isRead      Boolean  @default(false) @map("is_read")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
