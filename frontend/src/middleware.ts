@@ -17,7 +17,7 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (hasToken && (pathname === '/login' || pathname === '/forgot-password')) {
+  if (hasToken && (pathname === '/login' || pathname === '/forgot-password' || pathname === '/register')) {
     const dashboardUrl = req.nextUrl.clone();
     dashboardUrl.pathname = '/dashboard';
     dashboardUrl.search = '';
@@ -36,5 +36,6 @@ export const config = {
     '/profile/:path*',
     '/login',
     '/forgot-password',
+    '/register',
   ],
 };

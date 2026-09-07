@@ -102,6 +102,12 @@ export default function LoginPage() {
           <Button type="submit" className="w-full" disabled={isSubmitting}>
             {isSubmitting ? 'Signing in…' : 'Sign in'}
           </Button>
+          <p className="text-center text-sm text-muted-foreground">
+            New here?{' '}
+            <Link href="/register" className="font-medium text-primary hover:underline">
+              Create an account
+            </Link>
+          </p>
         </form>
       </CardContent>
     </Card>

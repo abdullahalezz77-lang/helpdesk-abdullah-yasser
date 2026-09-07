@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse as SwaggerResponse } from '@nestjs/s
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -42,6 +43,22 @@ export class AuthController {
     });
 
     return result;
+  }
+
+  @Public()
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Register a new user account with EMPLOYEE role' })
+  @SwaggerResponse({
+    status: 201,
+    description: 'Account created successfully',
+  })
+  @SwaggerResponse({
+    status: 409,
+    description: 'Account with this email already exists',
+  })
+  async register(@Body() dto: RegisterDto) {
+    return this.authService.register(dto);
   }
 
   @Post('logout')

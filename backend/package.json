@@ -6,7 +6,7 @@
     "build": "nest build",
     "start": "nest start",
     "start:dev": "nest start --watch",
-    "start:prod": "node dist/main",
+    "start:prod": "node dist/backend/src/main.js",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate dev",
@@ -64,3 +64,4 @@
     "typescript": "^5.4.5"
   }
 }
+

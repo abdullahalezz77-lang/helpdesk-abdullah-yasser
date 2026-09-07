@@ -4,7 +4,11 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { MailService } from '../src/mail/mail.service';
-import { UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  UnauthorizedException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 
 describe('AuthService', () => {
@@ -26,6 +30,7 @@ describe('AuthService', () => {
   const mockPrismaService: any = {
     user: {
       findUnique: jest.fn(),
+      create: jest.fn(),
       update: jest.fn(),
     },
     session: {
@@ -98,6 +103,99 @@ describe('AuthService', () => {
       await expect(
         service.login({ email: 'unknown@helpdesk-lite.local', password: 'Password123!' }),
       ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('register', () => {
+    it('creates a new user with EMPLOYEE role and hashed password', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+      const createdUser = {
+        id: 'user-uuid-new',
+        name: 'New Employee',
+        email: 'new@helpdesk-lite.local',
+        role: 'EMPLOYEE',
+      };
+      mockPrismaService.user.create.mockImplementation(async ({ data }: any) => {
+        const { passwordHash, ...rest } = data;
+        // Ensure password is hashed (not stored in plaintext)
+        expect(passwordHash).toBeDefined();
+        expect(passwordHash).not.toBe('Password123!');
+        const matches = await bcrypt.compare('Password123!', passwordHash);
+        expect(matches).toBe(true);
+        return { id: 'user-uuid-new', ...rest, createdAt: new Date(), updatedAt: new Date() };
+      });
+
+      const result = await service.register({
+        name: 'New Employee',
+        email: 'new@helpdesk-lite.local',
+        password: 'Password123!',
+        confirmPassword: 'Password123!',
+      });
+
+      expect(result.message).toContain('Account created successfully');
+      expect(mockPrismaService.user.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          name: 'New Employee',
+          email: 'new@helpdesk-lite.local',
+          role: 'EMPLOYEE',
+          passwordHash: expect.any(String),
+        }),
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+        },
+      });
+      expect(result.user.role).toBe('EMPLOYEE');
+    });
+
+    it('normalizes email to lowercase before checking duplicates', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+      mockPrismaService.user.create.mockResolvedValue({
+        id: 'user-uuid-new',
+        name: 'New Employee',
+        email: 'new@helpdesk-lite.local',
+        role: 'EMPLOYEE',
+      });
+
+      await service.register({
+        name: 'New Employee',
+        email: 'NEW@HELPDESK-LITE.LOCAL',
+        password: 'Password123!',
+        confirmPassword: 'Password123!',
+      });
+
+      expect(mockPrismaService.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ email: 'new@helpdesk-lite.local' }),
+        }),
+      );
+    });
+
+    it('throws ConflictException when email already exists', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({ id: 'existing-user' });
+
+      await expect(
+        service.register({
+          name: 'New Employee',
+          email: 'existing@helpdesk-lite.local',
+          password: 'Password123!',
+          confirmPassword: 'Password123!',
+        }),
+      ).rejects.toThrow(ConflictException);
+      expect(mockPrismaService.user.create).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException when password and confirmation do not match', async () => {
+      await expect(
+        service.register({
+          name: 'New Employee',
+          email: 'new@helpdesk-lite.local',
+          password: 'Password123!',
+          confirmPassword: 'DifferentPassword!',
+        }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

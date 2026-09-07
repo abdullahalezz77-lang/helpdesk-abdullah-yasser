@@ -92,6 +92,115 @@ describe('HelpDesk Lite API (Integration Tests)', () => {
     });
   });
 
+  describe('Self-Registration', () => {
+    const newUserEmail = 'newselfreg@helpdesk-lite.local';
+
+    afterAll(async () => {
+      await prisma.user.deleteMany({ where: { email: newUserEmail } });
+    });
+
+    it('registers a new user with EMPLOYEE role', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/register')
+        .send({
+          name: 'Self Registered Employee',
+          email: newUserEmail,
+          password: 'Password123!',
+          confirmPassword: 'Password123!',
+        })
+        .expect(201);
+
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.user).toBeDefined();
+      expect(res.body.data.user.name).toBe('Self Registered Employee');
+      expect(res.body.data.user.email).toBe(newUserEmail);
+      expect(res.body.data.user.role).toBe('EMPLOYEE');
+      // Password hash must never be exposed
+      expect(JSON.stringify(res.body.data)).not.toContain('passwordHash');
+      expect(JSON.stringify(res.body.data)).not.toContain('password_hash');
+    });
+
+    it('rejects duplicate email registration', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/register')
+        .send({
+          name: 'Another Employee',
+          email: newUserEmail,
+          password: 'Password123!',
+          confirmPassword: 'Password123!',
+        })
+        .expect(409);
+
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.code).toBe('CONFLICT');
+    });
+
+    it('rejects invalid email format', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/register')
+        .send({
+          name: 'Invalid Email User',
+          email: 'not-an-email',
+          password: 'Password123!',
+          confirmPassword: 'Password123!',
+        })
+        .expect(400);
+
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.code).toBe('BAD_REQUEST');
+    });
+
+    it('rejects password/confirmation mismatch', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/register')
+        .send({
+          name: 'Mismatch User',
+          email: 'mismatch@helpdesk-lite.local',
+          password: 'Password123!',
+          confirmPassword: 'DifferentPass!',
+        })
+        .expect(400);
+
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.code).toBe('BAD_REQUEST');
+    });
+
+    it('rejects role submission attempts (forbidden non-whitelisted field)', async () => {
+      // Sending a `role` field is not allowed on the public registration endpoint.
+      // forbidNonWhitelisted validation rejects it before it can influence the account.
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/register')
+        .send({
+          name: 'Role Escalation User',
+          email: 'roleescalation@helpdesk-lite.local',
+          password: 'Password123!',
+          confirmPassword: 'Password123!',
+          role: 'MANAGER',
+        })
+        .expect(400);
+
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.code).toBe('BAD_REQUEST');
+
+      // No account should have been created with a MANAGER role
+      const dbUser = await prisma.user.findUnique({
+        where: { email: 'roleescalation@helpdesk-lite.local' },
+      });
+      expect(dbUser).toBeNull();
+    });
+
+    it('allows newly registered employee to log in', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ email: newUserEmail, password: 'Password123!' })
+        .expect(200);
+
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.user.role).toBe('EMPLOYEE');
+      expect(res.body.data.accessToken).toBeDefined();
+    });
+  });
+
   describe('Ticket Submission & Role-based Scoping', () => {
     it('allows Employee to create a ticket with unique HD-XXXXXX identifier', async () => {
       const categories = await prisma.category.findMany();

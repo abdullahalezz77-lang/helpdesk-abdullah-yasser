@@ -3,15 +3,18 @@ import {
   UnauthorizedException,
   BadRequestException,
   NotFoundException,
+  ConflictException,
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -69,6 +72,57 @@ export class AuthService {
         role: user.role,
       },
     };
+  }
+  async register(registerDto: RegisterDto) {
+    if (registerDto.password !== registerDto.confirmPassword) {
+      throw new BadRequestException('Password and confirmation do not match');
+    }
+
+    if (registerDto.password.length < 8) {
+      throw new BadRequestException('Password must be at least 8 characters');
+    }
+
+    const email = registerDto.email.trim().toLowerCase();
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('An account with this email already exists');
+    }
+
+    const passwordHash = await bcrypt.hash(registerDto.password, 10);
+
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          name: registerDto.name.trim(),
+          email,
+          passwordHash,
+          role: 'EMPLOYEE',
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+        },
+      });
+
+      return {
+        message: 'Account created successfully. You can now log in.',
+        user,
+      };
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException('An account with this email already exists');
+      }
+      throw error;
+    }
   }
 
   async logout(token?: string, userId?: string) {
